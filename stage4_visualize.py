@@ -50,33 +50,26 @@ RANDOM_BASELINES = {
     (25, 0.8): 1.5746,
 }
 
-def load_ga_results(path: str = "ga_results.npz") -> list:
+def load_ga_results(path: str = "ga_results_multiseed.npz") -> list:
     raw = np.load(path, allow_pickle=True)
-
-    run_indices = sorted(set(
-        int(k.split("_")[0].replace("run", ""))
-        for k in raw.files
-    ))
-
-    results = []
-    for i in run_indices:
-        prefix = f"run{i}_"
-        r = {}
-        for k in raw.files:
-            if k.startswith(prefix):
-                field = k[len(prefix):]
-                val   = raw[k]
-                if val.ndim == 0:
-                    val = val.item()
-                r[field] = val
-        results.append(r)
-
-    return results
+    import re
+    pattern = re.compile(r"^cfg(\d+)_run0_(.+)$")  # take run 0 only
+    store = {}
+    for k in raw.files:
+        m = pattern.match(k)
+        if not m:
+            continue
+        cfg, field = int(m.group(1)), m.group(2)
+        val = raw[k]
+        if val.ndim == 0:
+            val = val.item()
+        store.setdefault(cfg, {})[field] = val
+    return [store[i] for i in sorted(store)]
 
 def plot_rmse_vs_budget(results: list):
     fig, axes = plt.subplots(1, 2, figsize=(13, 5), sharey=False)
     fig.suptitle(
-        "Reconstruction RMSE vs Sensor Budget\nGA-Optimised vs Random Placement",
+        "Reconstruction RMSE vs Sensor Budget; GA-Optimized vs Random Placement",
         fontsize=14, fontweight="bold", y=1.02
     )
 
@@ -113,7 +106,7 @@ def plot_rmse_vs_budget(results: list):
         ax.set_ylabel("Test RMSE (mg/L)")
         ax.set_xticks(budgets)
         ax.set_xticklabels(BUDGET_LABELS)
-        ax.legend(loc="upper right")
+        ax.legend(loc="lower right")
         ax.set_ylim(bottom=0)
 
     plt.tight_layout()
@@ -125,7 +118,7 @@ def plot_rmse_vs_budget(results: list):
 def plot_convergence(results: list):
     fig, axes = plt.subplots(2, 6, figsize=(18, 7), sharey="row")
     fig.suptitle(
-        "GA Convergence — Best and Mean RMSE per Generation",
+        "Best and Mean RMSE per Generation",
         fontsize=14, fontweight="bold"
     )
 
@@ -178,8 +171,7 @@ def plot_sensor_maps(results: list):
 
     fig, axes = plt.subplots(2, 2, figsize=(13, 10))
     fig.suptitle(
-        "GA-Selected Sensor Locations at 30% and 70% Budget\n"
-        "(Background: training-period mean DO, mg/L)",
+        "GA-Selected Sensor Locations at 30% and 70% Budget\n",
         fontsize=14, fontweight="bold"
     )
 
@@ -236,6 +228,8 @@ def plot_sensor_maps(results: list):
                 f"RMSE = {run['best_rmse']:.3f} mg/L",
                 fontsize=10
             )
+            ax.set_aspect("equal")
+            ax.tick_params(axis="both", labelsize=7)
             ax.set_xlabel("Grid column (cx)", fontsize=9)
             ax.set_ylabel("Grid row (cy)", fontsize=9)
 
@@ -243,7 +237,7 @@ def plot_sensor_maps(results: list):
                 facecolor="none", edgecolor=C_SENSOR,
                 linewidth=2, label=f"Selected sensors (n={run['p']})"
             )
-            ax.legend(handles=[sensor_patch], loc="upper left",
+            ax.legend(handles=[sensor_patch], loc="lower left",
                       fontsize=8, framealpha=0.8)
 
         sm = ScalarMappable(cmap=cmap, norm=norm)
@@ -261,7 +255,7 @@ def plot_sensor_maps(results: list):
 def plot_monthly_rmse(results: list):
     fig, axes = plt.subplots(1, 2, figsize=(14, 5), sharey=False)
     fig.suptitle(
-        "Per-Month Test RMSE Distribution by Sensor Budget",
+        "Monthly Test RMSE Distribution by Sensor Budget",
         fontsize=14, fontweight="bold"
     )
 
@@ -328,7 +322,8 @@ def plot_monthly_rmse(results: list):
 
 
 if __name__ == "__main__":
-    results = load_ga_results("ga_results.npz")
+    results = load_ga_results("ga_results_multiseed.npz")
+    print(results[0].keys())    
     plot_rmse_vs_budget(results)
     plot_convergence(results)
     plot_sensor_maps(results)

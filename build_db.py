@@ -52,11 +52,13 @@ con.execute(f"""
 CREATE OR REPLACE TABLE fixed_stations AS
 SELECT station_id
 FROM (
-  SELECT station_id, COUNT(DISTINCT ROUND(depth_m, 2)) AS n_depths
+  SELECT station_id, 
+         COUNT(DISTINCT ROUND(lat, 4)) AS n_lats,
+         COUNT(DISTINCT ROUND(lon, 4)) AS n_lons
   FROM base_clean
   GROUP BY 1
 )
-WHERE n_depths <= {FIXED_N_DEPTHS_MAX};
+WHERE n_lats <= 1 AND n_lons <= 1;
 """)
 
 # create clean_surface_all: whole Gulf within  overall data bounds

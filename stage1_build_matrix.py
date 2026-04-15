@@ -19,7 +19,7 @@ N_TRAIN = 48
 
 # iterative SVD imputation settings
 ISVD_RANK    = 10
-ISVD_MAXITER = 200
+ISVD_MAXITER = 500
 
 
 def load_raw_matrix(parquet_path: str, min_months: int) -> pd.DataFrame:
@@ -97,8 +97,8 @@ def run_pipeline(cell_size_m: int):
     train_months = month_index[:N_TRAIN]
     test_months  = month_index[N_TRAIN:]
 
-    print(f"  Train: {train_months[0].strftime('%Y-%m')} -> {train_months[-1].strftime('%Y-%m')}  ({len(train_months)} months)")
-    print(f"  Test : {test_months[0].strftime('%Y-%m')} -> {test_months[-1].strftime('%Y-%m')}  ({len(test_months)} months)")
+    print(f"  Train: {train_months[0].strftime('%Y-%m')} through {train_months[-1].strftime('%Y-%m')}  ({len(train_months)} months)")
+    print(f"  Test : {test_months[0].strftime('%Y-%m')} through {test_months[-1].strftime('%Y-%m')}  ({len(test_months)} months)")
     print(f"  Train missing: {np.isnan(X_train_raw).mean():.1%}   Test missing: {np.isnan(X_test_raw).mean():.1%}")
 
     X_train_full = impute_iterative_svd(X_train_raw, ISVD_RANK, ISVD_MAXITER)
@@ -120,8 +120,7 @@ def run_pipeline(cell_size_m: int):
         cell_size_m  = np.array(cell_size_m),
     )
 
-    print(f"\n  Saved: {out_path}")
-    print(f"    Cells: {len(cell_ids)}   "
+    print(f"Cells: {len(cell_ids)}   "
           f"Train months: {len(train_months)}   "
           f"Test months: {len(test_months)}")
 

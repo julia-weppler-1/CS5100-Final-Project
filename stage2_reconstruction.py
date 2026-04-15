@@ -96,9 +96,9 @@ def run_budget_sweep(data: dict, cell_size_km: int) -> list:
     N   = data["X_train_full"].shape[1]
 
     print(f"\n{'='*60}")
-    print(f"  Budget sweep -- {cell_size_km}km cells  (N={N} cells)")
+    print(f"  Budget sweep for {cell_size_km}km cells  (N={N} cells)")
     print(f"{'='*60}")
-    print(f"  {'Budget':>8}  {'p':>4}  {'Mean RMSE':>10}  "
+    print(f" {'Budget':>8}  {'p':>4}  {'Mean RMSE':>10}  "
           f"{'Std RMSE':>9}  {'Months eval':>12}")
     print("  " + "-"*52)
 
@@ -143,5 +143,3 @@ if __name__ == "__main__":
               f"Train shape: {data['X_train_full'].shape}   "
               f"Test shape: {data['X_test_raw'].shape}")
         run_budget_sweep(data, km)
-
-    print("These random baselines are what the GA must beat.")

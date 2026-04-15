@@ -6,9 +6,9 @@ from stage2_reconstruction import load_stage1, evaluate_sensor_subset
 # budget fractions to optimise, must match Stage 2 sweep for comparison
 BUDGET_FRACTIONS = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
 
-POP_SIZE       = 100    
+POP_SIZE       = 150    
 MAX_GENERATIONS = 200   # upper limit on generations
-PATIENCE       = 40     # stop early if best fitness doesn't improve for this many gens
+PATIENCE       = 60     # stop early if best fitness doesn't improve for this many gens
 ELITE_SIZE     = 5      # number of top individuals preserved unchanged each gen
 CROSSOVER_RATE = 0.85   # probability of crossover vs. direct copy
 MUTATION_RATE  = 0.15   # probability each individual undergoes swap mutation
@@ -17,12 +17,12 @@ TOURNAMENT_K   = 3      # tournament selection pool size
 # fraction of initial population with high-variance cells
 INFORMED_FRAC  = 0.5
 
-SEED = 42             
+N_RUNS = 5             
 
 def sequence_to_indices(seq: np.ndarray) -> np.ndarray:
     return np.where(seq)[0]
 
-
+# repair after crossover
 def repair(seq: np.ndarray, p: int, rng: np.random.Generator) -> np.ndarray:
     seq = seq.copy()
     selected = np.where(seq == 1)[0]
@@ -51,13 +51,12 @@ def initialise_population(
     population = np.zeros((pop_size, N), dtype=np.int8)
     n_informed = int(pop_size * informed_frac)
 
-    # rank cells by training variance (descending)
+    # rank cells by training variance
     ranked = np.argsort(train_variances)[::-1]
 
     for i in range(pop_size):
         if i < n_informed:
             # take the top-p * 1.5 cells by variance, then sample p from them
-            # (the *1.5 introduces variation so informed individuals aren't identical)
             pool_size = min(N, int(p * 1.5))
             pool = ranked[:pool_size]
             selected = rng.choice(pool, size=p, replace=False)
@@ -124,7 +123,7 @@ def evaluate_population(
         if key not in fitness_cache:
             indices = sequence_to_indices(population[i])
             result  = evaluate_sensor_subset(indices, data)
-            fitness_cache[key] = -result["rmse"]   # maximise this to minimise RMSE
+            fitness_cache[key] = -result["rmse"]   # maximize this to minimize RMSE
 
         fitness[i] = fitness_cache[key]
 
@@ -139,12 +138,12 @@ def run_ga(
 ) -> dict:
     N = data["X_train_full"].shape[1]
 
-    # training-period variance per cell (used to seed informed individuals)
+    # training-period variance per cell to seed informed individuals
     train_variances = np.nanvar(data["X_train_full"], axis=0)
 
     print(f"\n  Budget {budget_frac:.0%}  (p={p} sensors / {N} cells)")
     print(f"  {'Gen':>5}  {'Best RMSE':>10}  {'Mean RMSE':>10}  {'Cache hits':>11}  {'Elapsed':>8}")
-    print(f"  {'-'*52}")
+    print(f"  {'-'*60}")
 
     population    = initialise_population(
         N, p, POP_SIZE, INFORMED_FRAC, train_variances, rng
@@ -226,7 +225,6 @@ def run_ga(
     best_result = evaluate_sensor_subset(best_indices, data)
 
     print(f"\n  Best RMSE: {best_rmse:.4f} mg/L  "
-          f"({best_result['n_months_eval']} test months evaluated)  "
           f"[{elapsed:.1f}s total]")
 
     return {
@@ -268,6 +266,7 @@ def print_comparison_table(all_results: list, random_baselines: dict):
 
 
 if __name__ == "__main__":
+    # THESE NEED TO BE PASTED IN EACH RUN FROM PREV OUTPUTS
     RANDOM_BASELINES = {
         (15, 0.3): 1.6524,
         (15, 0.4): 1.6946,
@@ -283,31 +282,59 @@ if __name__ == "__main__":
         (25, 0.8): 1.5746,
     }
 
-    all_results = []
-
+    grouped     : dict = {}
+    all_results : list = []
+ 
     for km in [15, 25]:
         print(f"\n{'='*60}")
-        print(f"  GA — {km}km cells")
+        print(f"  GA — {km}km cells  ({N_RUNS} runs per budget)")
         print(f"{'='*60}")
-
+ 
         data = load_stage1(km)
         N    = data["X_train_full"].shape[1]
-        rng  = np.random.default_rng(SEED)
-
+ 
         for frac in BUDGET_FRACTIONS:
             p = max(1, int(round(frac * N)))
-            result = run_ga(data, p, km, frac, rng)
-            all_results.append(result)
-
-    out_path = "ga_results.npz"
-    save_dict = {}
-    for i, r in enumerate(all_results):
-        prefix = f"run{i}_"
-        for k, v in r.items():
-            if isinstance(v, np.ndarray):
-                save_dict[prefix + k] = v
-            else:
-                save_dict[prefix + k] = np.array(v)
+            grouped[(km, frac)] = []
+ 
+            for run_idx in range(N_RUNS):
+                print(f"\n  --- Run {run_idx + 1}/{N_RUNS} ---")
+                rng    = np.random.default_rng()  
+                result = run_ga(data, p, km, frac, rng)
+                result["run_idx"] = run_idx
+                grouped[(km, frac)].append(result)
+                all_results.append(result)
+ 
+    # save all runs
+    out_path   = "ga_results_multiseed.npz"
+    save_dict  = {}
+    config_idx = 0
+    for km in [15, 25]:
+        for frac in BUDGET_FRACTIONS:
+            for run_idx, r in enumerate(grouped[(km, frac)]):
+                prefix = f"cfg{config_idx}_run{run_idx}_"
+                for k, v in r.items():
+                    arr = v if isinstance(v, np.ndarray) else np.array(v)
+                    save_dict[prefix + k] = arr
+            config_idx += 1
     np.savez(out_path, **save_dict)
-
-    print_comparison_table(all_results, RANDOM_BASELINES)
+    print(f"\nSaved {len(all_results)} runs → {out_path}")
+ 
+    # print mean +/- std summary
+    print("\n" + "="*80)
+    print("  STABILITY SUMMARY")
+    print("="*80)
+    print(f"  {'Size':>6}  {'Budget':>7}  {'p':>4}  {'Random':>8}  "
+          f"{'Mean RMSE':>10}  {'Std RMSE':>9}  {'Improvement':>12}")
+    print("  " + "-"*72)
+    for km in [15, 25]:
+        for frac in BUDGET_FRACTIONS:
+            runs  = grouped[(km, frac)]
+            rmses = [r["best_rmse"] for r in runs]
+            mean_r = float(np.mean(rmses))
+            std_r  = float(np.std(rmses))
+            rand_r = RANDOM_BASELINES.get((km, frac), float("nan"))
+            improv = (rand_r - mean_r) / rand_r * 100
+            p      = runs[0]["p"]
+            print(f"  {km:>4}km  {frac:>6.0%}  {p:>4d}  {rand_r:>8.4f}  "
+                  f"{mean_r:>10.4f}  {std_r:>9.4f}  {improv:>11.1f}%")
