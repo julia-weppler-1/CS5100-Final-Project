@@ -67,7 +67,7 @@ def load_ga_results(path: str = "ga_results_multiseed.npz") -> list:
     return [store[i] for i in sorted(store)]
 
 def plot_rmse_vs_budget(results: list):
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5), sharey=False)
+    fig, axes = plt.subplots(2, 1, figsize=(8, 10), sharex=True)
     fig.suptitle(
         "Reconstruction RMSE vs Sensor Budget; GA-Optimized vs Random Placement",
         fontsize=14, fontweight="bold", y=1.02
@@ -118,7 +118,7 @@ def plot_rmse_vs_budget(results: list):
 def plot_convergence(results: list):
     fig, axes = plt.subplots(2, 6, figsize=(18, 7), sharey="row")
     fig.suptitle(
-        "Best and Mean RMSE per Generation",
+        "Best and Mean RMSE per Generation (Informed Population Seeding)",
         fontsize=14, fontweight="bold"
     )
 
@@ -161,7 +161,7 @@ def plot_convergence(results: list):
                 ax.legend(fontsize=7, loc="upper right")
 
     plt.tight_layout()
-    path = "fig2_convergence.png"
+    path = "fig2_convergence_informed.png"
     fig.savefig(path, bbox_inches="tight")
     plt.close(fig)
 
@@ -169,7 +169,7 @@ def plot_convergence(results: list):
 def plot_sensor_maps(results: list):
     SHOW_BUDGETS = [0.3, 0.7]  
 
-    fig, axes = plt.subplots(2, 2, figsize=(13, 10))
+    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
     fig.suptitle(
         "GA-Selected Sensor Locations at 30% and 70% Budget\n",
         fontsize=14, fontweight="bold"
@@ -242,18 +242,18 @@ def plot_sensor_maps(results: list):
 
         sm = ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
-        cbar = fig.colorbar(sm, ax=axes[row_idx, :], shrink=0.6,
-                            pad=0.02, aspect=20)
+        cbar_ax = fig.add_axes([0.92, 0.55 if row_idx == 0 else 0.08, 
+                                 0.015, 0.35])
+        cbar = fig.colorbar(sm, cax=cbar_ax)
         cbar.set_label("Mean DO (mg/L)", fontsize=9)
-
-    plt.tight_layout()
+    fig.subplots_adjust(hspace=0.4, wspace=0.1, right=0.90)
     path = "fig3_sensor_maps.png"
     fig.savefig(path, bbox_inches="tight")
     plt.close(fig)
 
 
 def plot_monthly_rmse(results: list):
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5), sharey=False)
+    fig, axes = plt.subplots(2, 1, figsize=(10, 10), sharey=False)
     fig.suptitle(
         "Monthly Test RMSE Distribution by Sensor Budget",
         fontsize=14, fontweight="bold"

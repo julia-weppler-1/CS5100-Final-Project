@@ -15,7 +15,7 @@ MUTATION_RATE  = 0.15   # probability each individual undergoes swap mutation
 TOURNAMENT_K   = 3      # tournament selection pool size
 
 # fraction of initial population with high-variance cells
-INFORMED_FRAC  = 0.5
+INFORMED_FRAC  = 0.0
 
 N_RUNS = 5             
 
@@ -306,7 +306,7 @@ if __name__ == "__main__":
                 all_results.append(result)
  
     # save all runs
-    out_path   = "ga_results_multiseed.npz"
+    out_path = "ga_results_multiseed_uninformed.npz"
     save_dict  = {}
     config_idx = 0
     for km in [15, 25]:
@@ -318,7 +318,6 @@ if __name__ == "__main__":
                     save_dict[prefix + k] = arr
             config_idx += 1
     np.savez(out_path, **save_dict)
-    print(f"\nSaved {len(all_results)} runs → {out_path}")
  
     # print mean +/- std summary
     print("\n" + "="*80)
