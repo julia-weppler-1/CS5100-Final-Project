@@ -17,3 +17,6 @@ You can run the files in the following order:
 5. python stage3_genetic_algorithm.py
 6. python stage4_visualize.py
 These files will output data files (parquets) that subsequent files will rely on and will print artifacts to the terminal to better udnerstand the data.
+
+### Project Report
+For the final project report, please see CS5100_FINAL_JULIA_WEPPLER.pdf in the root directory.
